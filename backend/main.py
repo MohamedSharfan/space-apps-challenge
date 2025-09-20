@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pyndantic import BaseModel
 from pymongo import MongoClient
 from bson import ObjectId
@@ -26,7 +26,7 @@ DB_NAME = os.getenv("DB_NAME")
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 annotations_collection = db["annotation"]
-images_collections = db["images"]
+images_collection = db["images"]
 
 
 
@@ -57,7 +57,7 @@ def get_annotations(date: str = None, layer: str =None):
         query["date"] = date
     if layer:
         query["layer"] = layer
-    results = list(annotation_collection.find(query))
+    results = list(annotations_collection.find(query))
     for r in results:
         r["_id"] = str(r["_id"])
     return results
@@ -73,5 +73,27 @@ def delete_annotation(annotation_id: str):
 
 @app.post("/images")
 def add_image(image: ImageLayer):
-    result = images_collections.insert_one(image.dict())
+    result = images_collection.insert_one(image.dict())
     return { "id": str(result.inserted_id) }
+
+@app.get("/images")
+def get_image(name: str = None, date: str = None, skip: int = 0, limit: int = 50):
+    query = {}
+    if name:
+        query["name"] = name
+    if date:
+        query["date"] = date
+    results = list(images_collection.find(query).skip(skip).limit(limit))
+    for r in results:
+        r["_id"] = str(r["_id"])
+    return results
+
+
+@app.delete("/images/{image_id}")
+def delete_image(image_id: str):
+    result = images_collection.delete_one({ "_id":ObjectId(image_id) })
+    if result.deleted_count == 1:
+        return { "message": "deleted" }
+    raise HTTPException(status_code=404, detail="Image not found")
+
+    

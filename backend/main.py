@@ -25,6 +25,9 @@ DB_NAME = os.getenv("DB_NAME")
 
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
+annotations_collection = db["annotation"]
+images_collections = db["images"]
+
 
 
 class Annotation(BaseModel):
@@ -33,6 +36,13 @@ class Annotation(BaseModel):
     layer: str
     type: str
     coordinates: list
+
+class ImageLayer(BaseModel):
+    name: str
+    date: str
+    layer_url: str
+    description: str = None
+    metadata: dict = Field(default_factory = dict) 
 
 @app.post("/annotations")
 def create_annotation(annotation: Annotation):
@@ -58,3 +68,10 @@ def delete_annotation(annotation_id: str):
     if result.deleted_count == 1:
         return { "message": "Deleted" }
     return { "message": "Not found" }
+
+
+
+@app.post("/images")
+def add_image(image: ImageLayer):
+    result = images_collections.insert_one(image.dict())
+    return { "id": str(result.inserted_id) }
